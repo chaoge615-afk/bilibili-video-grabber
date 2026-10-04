@@ -1,0 +1,15 @@
+# 输出与临时文件
+output/
+*.m4a
+*.mp3
+*.webm
+.bili_cookie_tmp.txt
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# 环境变量（含密钥，不入库）
+.env

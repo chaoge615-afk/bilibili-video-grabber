@@ -1,0 +1,4 @@
+interface:
+  display_name: Bilibili Video Grabber
+  short_description: Convert supplied Bilibili videos into Markdown notes
+  default_prompt: Extract a supplied Bilibili video's metadata, transcript, and a concise structured summary.
