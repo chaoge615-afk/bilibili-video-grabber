@@ -245,17 +245,41 @@ def strip_asr_noise(text: str) -> str:
 
 
 def refine_text(raw_text: str, api_key: str, api_url: str, model: str,
-                max_raw: int = 5000, max_tokens: int = 2500,
-                retries: int = 2, sleep: int = 30) -> str | None:
-    """OpenAI 兼容 LLM 精炼，失败重试，返回精炼 markdown 或 None。"""
-    prompt = REFINE_PROMPT + raw_text[:max_raw]
-    payload = {
-        "model": model,
-        "messages": [{"role": "user", "content": prompt}],
-        "max_tokens": max_tokens,
-        "temperature": 0.3,
-    }
-    headers = {"Authorization": "Bearer " + api_key, "Content-Type": "application/json"}
+                protocol: str = "chat-completions", max_raw: int = 5000,
+                max_tokens: int = 2500, retries: int = 2,
+                sleep: int = 30) -> str | None:
+    """调用 Chat Completions 或 Anthropic Messages 兼容 LLM 精炼。"""
+    source = raw_text[:max_raw]
+    protocol = protocol.lower()
+    if protocol == "chat-completions":
+        payload = {
+            "model": model,
+            "messages": [{"role": "user", "content": REFINE_PROMPT + source}],
+            "max_tokens": max_tokens,
+            "temperature": 0.3,
+        }
+        headers = {"Authorization": "Bearer " + api_key, "Content-Type": "application/json"}
+    elif protocol == "responses":
+        payload = {
+            "model": model,
+            "input": REFINE_PROMPT + source,
+            "max_output_tokens": max_tokens,
+        }
+        headers = {"Authorization": "Bearer " + api_key, "Content-Type": "application/json"}
+    elif protocol == "anthropic-messages":
+        payload = {
+            "model": model,
+            "system": REFINE_PROMPT,
+            "messages": [{"role": "user", "content": [{"type": "text", "text": source}]}],
+            "max_tokens": max_tokens,
+        }
+        headers = {
+            "x-api-key": api_key,
+            "anthropic-version": "2023-06-01",
+            "Content-Type": "application/json",
+        }
+    else:
+        raise ValueError(f"不支持的精炼协议: {protocol}（支持 chat-completions / responses / anthropic-messages）")
 
     for attempt in range(retries + 1):
         try:
@@ -267,7 +291,23 @@ def refine_text(raw_text: str, api_key: str, api_url: str, model: str,
             )
             with urllib.request.urlopen(req, timeout=120) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
-            result = _clean_response(data["choices"][0]["message"]["content"].strip())
+            if protocol == "chat-completions":
+                result = data["choices"][0]["message"]["content"].strip()
+            elif protocol == "responses":
+                result = data.get("output_text", "").strip()
+                if not result:
+                    result = "\n".join(
+                        block.get("text", "")
+                        for item in data.get("output", [])
+                        for block in item.get("content", [])
+                        if block.get("type") in {"output_text", "text"}
+                    ).strip()
+            else:
+                result = "\n".join(
+                    block.get("text", "") for block in data.get("content", [])
+                    if block.get("type") == "text"
+                ).strip()
+            result = _clean_response(result)
             if _validate_output(result):
                 return result
             print(f"  ⚠️ 精炼格式不完整，第 {attempt+1} 次重试")
@@ -388,7 +428,8 @@ def process_one(target: str, args, out_dir: Path, cookie_file: str | None,
         if refine_cfg["refine_key"]:
             print(f"  精炼中（{refine_cfg['refine_model']}）...")
             summary = refine_text(transcript, refine_cfg["refine_key"],
-                                  refine_cfg["refine_url"], refine_cfg["refine_model"])
+                                  refine_cfg["refine_url"], refine_cfg["refine_model"],
+                                  refine_cfg["refine_protocol"])
             if summary:
                 print("  ✓ 精炼完成")
             else:
@@ -444,6 +485,9 @@ def main():
     parser.add_argument("--refine-key", default="", help="精炼 API Key（默认读 REFINE_API_KEY 环境变量）")
     parser.add_argument("--refine-url", default=os.getenv("REFINE_API_URL", ""), help="精炼接口（默认读 REFINE_API_URL）")
     parser.add_argument("--refine-model", default=os.getenv("REFINE_MODEL", ""), help="精炼模型（默认读 REFINE_MODEL）")
+    parser.add_argument("--refine-protocol", default=os.getenv("REFINE_API_PROTOCOL", "chat-completions"),
+                        choices=("chat-completions", "responses", "anthropic-messages"),
+                        help="精炼 API 协议（默认 chat-completions）")
     args = parser.parse_args()
 
     # 汇总目标
@@ -491,6 +535,7 @@ def main():
         "refine_key": refine_key if args.refine_url and args.refine_model else "",
         "refine_url": args.refine_url,
         "refine_model": args.refine_model,
+        "refine_protocol": args.refine_protocol,
     }
 
     out_dir = Path(args.out_dir).expanduser().resolve()

@@ -21,7 +21,7 @@ Turn explicitly supplied BVIDs or Bilibili video URLs into Markdown notes contai
 
   Use `python` when available; otherwise try `py -3`.
 
-Set ASR configuration through environment variables or the matching command-line options. All three are required:
+For installation in another agent, see [INSTALL.md](INSTALL.md). Set ASR configuration through the agent's environment or the matching command-line options. All three are required:
 
 | Environment variable | Command-line option | Purpose |
 |---|---|---|
@@ -30,24 +30,22 @@ Set ASR configuration through environment variables or the matching command-line
 | `ASR_MODEL` | `--asr-model` | ASR model |
 | `ASR_TIMEOUT` | `--asr-timeout` | Request timeout in seconds |
 | `ASR_MAX_FILE_MB` | `--asr-max-file-mb` | Upload precheck limit; `0` disables it |
+| `REFINE_API_PROTOCOL` | `--refine-protocol` | `chat-completions`, `responses`, or `anthropic-messages` |
 
-The ASR service must accept multipart fields `file` and `model`, and return JSON containing `text`.
+The ASR service must accept multipart fields `file` and `model`, and return JSON containing `text`. The script also reads a `.env` file beside itself; use `config.example.env` as a template if the agent host cannot set environment variables directly. Keep real credentials out of the distributable Skill folder and archive.
 
-Refinement is optional. When used, configure `REFINE_API_KEY`, `REFINE_API_URL`, and `REFINE_MODEL` (or `--refine-key`, `--refine-url`, and `--refine-model`). The endpoint must accept the OpenAI Chat Completions request shape and return `choices[0].message.content`.
+Refinement is optional. When used, configure `REFINE_API_KEY`, `REFINE_API_URL`, and `REFINE_MODEL` (or `--refine-key`, `--refine-url`, and `--refine-model`). Use `chat-completions` for an OpenAI Chat Completions endpoint returning `choices[0].message.content`, `responses` for an OpenAI Responses endpoint returning output text, or `anthropic-messages` for an Anthropic Messages endpoint returning text content blocks.
 
 ## Run
 
 Keep generated files outside the skill folder. Unless the user chooses another directory, pass an `output` directory under the current workspace.
 
-```powershell
-$env:ASR_API_KEY = '<provided securely>'
-$env:ASR_API_URL = 'https://provider.example/v1/audio/transcriptions'
-$env:ASR_MODEL = 'provider-asr-model'
-$env:REFINE_API_KEY = '<optional provided securely>'
-$env:REFINE_API_URL = 'https://provider.example/v1/chat/completions'
-$env:REFINE_MODEL = 'provider-chat-model'
-<python-command> <skill-directory>\scripts\grab.py <BVID-or-URL> --out-dir .\output
+```sh
+<python-command> -m pip install -r <skill-directory>/requirements.txt
+<python-command> <skill-directory>/scripts/grab.py <BVID-or-URL> --out-dir <workspace-output-directory>
 ```
+
+Set `ASR_API_KEY`, `ASR_API_URL`, and `ASR_MODEL` in the execution environment before running. Configure the optional `REFINE_*` variables the same way. Use the equivalent environment-variable syntax for the agent's shell; do not put literal credentials in prompts, logs, or the Skill archive.
 
 - Pass multiple targets as positional arguments or use `--file <path>` for one target per line.
 - Use `--no-refine` for a transcript-only result.

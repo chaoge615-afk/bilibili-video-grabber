@@ -34,10 +34,11 @@ pip install -r requirements.txt   # yt-dlp, requests
 | `ASR_API_URL` / `ASR_MODEL` | ASR 转写端点与模型 | 是 |
 | `ASR_TIMEOUT` / `ASR_MAX_FILE_MB` | ASR 超时秒数与单文件上限（0 不预检） | 否（默认 300 / 0） |
 | `REFINE_API_KEY` | 精炼 LLM Key | 否（缺省只出转写） |
-| `REFINE_API_URL` / `REFINE_MODEL` | OpenAI 兼容的精炼端点与模型 | 与 `REFINE_API_KEY` 一起配置 |
+| `REFINE_API_URL` / `REFINE_MODEL` | 精炼端点与模型 | 与 `REFINE_API_KEY` 一起配置 |
+| `REFINE_API_PROTOCOL` | `chat-completions`、`responses` 或 `anthropic-messages` | 否（默认 `chat-completions`） |
 | `BILIBILI_COOKIE` | B站 Netscape cookie，文本或文件路径 | 否（公开视频可不配） |
 
-> ASR 服务需接受 `multipart/form-data` 的 `file` 和 `model` 字段，并返回 JSON `text`；精炼服务需兼容 OpenAI Chat Completions 请求格式。
+> ASR 服务需接受 `multipart/form-data` 的 `file` 和 `model` 字段，并返回 JSON `text`；精炼服务支持 OpenAI Chat Completions、Responses 或 Anthropic Messages 协议。
 
 ## 用法
 

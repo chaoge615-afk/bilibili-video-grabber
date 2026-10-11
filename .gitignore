@@ -8,8 +8,9 @@ output/
 # Python
 __pycache__/
 *.pyc
-.venv/
+.venv*/
 venv/
+pip-*/
 
 # 环境变量（含密钥，不入库）
 .env
